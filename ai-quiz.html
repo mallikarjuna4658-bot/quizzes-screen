@@ -279,7 +279,9 @@ h1{font-size:clamp(26px,5vw,38px);font-weight:900;line-height:1.15}
 <canvas id="fx"></canvas><div id="flash"></div>
 <script>
 // ---- CONFIG: your Flask backend (see quiz-backend/README.md) ----
-const API_BASE = "http://localhost:5000";
+// After deploying the backend, paste its Render URL here (no slash at the end)
+const PROD_API = "https://quizzes-screen.onrender.com";
+const API_BASE = ["localhost","127.0.0.1",""].includes(location.hostname) ? "http://localhost:5000" : PROD_API;
 const MAX_HEARTS = 5, SECONDS = 15;
 
 const $ = id => document.getElementById(id);
