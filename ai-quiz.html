@@ -1,0 +1,507 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>AI Quiz</title>
+<style>
+:root{
+  --bg:#131F24; --card:#1F2C33; --edge:#2F414B; --text:#F1F7FB; --muted:#8CA3AF;
+  --green:#58CC02; --green-d:#58A700; --green-s:rgba(88,204,2,.14);
+  --blue:#1CB0F6; --blue-d:#1899D6; --blue-s:rgba(28,176,246,.14);
+  --gold:#FFC800; --gold-d:#E6AC00;
+  --red:#FF4B4B; --red-d:#EA2B2B; --red-s:rgba(255,75,75,.14);
+  --purple:#CE82FF;
+  --pad:clamp(14px,4vw,32px);
+}
+@media (prefers-color-scheme: light){
+  :root{--bg:#fff;--card:#fff;--edge:#E5E5E5;--text:#3C3C3C;--muted:#777;--green-s:#D7FFB8;--blue-s:#DDF4FF;--red-s:#FFDFE0}
+}
+*{box-sizing:border-box;margin:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%}
+body{background:var(--bg);color:var(--text);font-family:"Nunito","Segoe UI",system-ui,-apple-system,sans-serif;font-weight:700;
+  padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)}
+button,input,select{font:inherit;color:inherit}
+.app{min-height:100dvh;max-width:860px;margin:0 auto;padding:var(--pad);display:flex;flex-direction:column}
+.screen{display:none;flex:1;flex-direction:column}
+.screen.on{display:flex}
+h1{font-size:clamp(26px,5vw,38px);font-weight:900;line-height:1.15}
+.sub{color:var(--muted);margin-top:6px;font-size:clamp(14px,2.4vw,17px)}
+.btn{border:0;border-radius:16px;padding:16px 22px;font-weight:900;font-size:15px;letter-spacing:.4px;cursor:pointer;
+  background:var(--green);color:#fff;border-bottom:4px solid var(--green-d);transition:transform .08s,border-width .08s}
+.btn:active:not(:disabled){transform:translateY(3px);border-bottom-width:1px}
+.btn:disabled{background:var(--edge);border-bottom-color:var(--edge);color:var(--muted);cursor:not-allowed}
+.btn.ghost{background:transparent;color:var(--blue);border:2px solid var(--edge);border-bottom-width:4px}
+:focus-visible{outline:3px solid var(--blue);outline-offset:2px}
+
+/* setup */
+.tabs{display:flex;gap:10px;margin:26px 0 16px}
+.tab{flex:1;padding:14px;border-radius:16px;border:2px solid var(--edge);border-bottom-width:4px;background:var(--card);cursor:pointer;font-weight:900;text-align:center}
+.tab[aria-selected=true]{border-color:var(--blue);background:var(--blue-s);color:var(--blue)}
+.field{width:100%;padding:16px;border-radius:16px;border:2px solid var(--edge);background:var(--card);font-size:16px}
+.field:focus{border-color:var(--blue);outline:0}
+.drop{border:3px dashed var(--edge);border-radius:20px;padding:clamp(24px,6vw,48px) 16px;text-align:center;background:var(--card);cursor:pointer}
+.drop.over,.drop.has{border-color:var(--green);background:var(--green-s)}
+.drop b{display:block;font-size:17px;margin-bottom:4px;overflow-wrap:anywhere}
+.row{display:flex;flex-wrap:wrap;gap:12px;margin:18px 0}
+.row label{flex:1 1 160px;display:flex;flex-direction:column;gap:6px;color:var(--muted);font-size:13px}
+.start{margin-top:auto;padding-top:20px}
+.start .btn{width:100%}
+.msg{margin-top:14px;padding:12px 14px;border-radius:14px;background:var(--red-s);color:var(--red);display:none}
+
+/* loading */
+.center{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:14px}
+.spin{width:54px;height:54px;border-radius:50%;border:6px solid var(--edge);border-top-color:var(--green);animation:sp 1s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+
+/* quiz */
+.top{display:flex;align-items:center;gap:12px}
+.x{background:none;border:0;color:var(--muted);font-size:26px;cursor:pointer;padding:4px 8px}
+.bar{flex:1;height:14px;border-radius:8px;background:var(--edge);overflow:hidden}
+.fill{height:100%;width:0;background:var(--green);border-radius:8px;transition:width .35s}
+.pill{display:flex;align-items:center;gap:4px;font-weight:900;font-size:14px;padding:4px 10px;border-radius:16px;border:2px solid var(--edge)}
+.pill.heart{color:var(--red)} .pill.time{color:var(--blue)} .pill.time.low{color:var(--red);border-color:var(--red)}
+.q{font-size:clamp(20px,3.6vw,30px);font-weight:900;line-height:1.3;margin:clamp(18px,4vh,36px) 0}
+.opts{display:grid;gap:12px;grid-template-columns:1fr}
+@media(min-width:720px){.opts{grid-template-columns:1fr 1fr;gap:16px}}
+.opt{display:flex;align-items:center;gap:12px;text-align:left;padding:14px 16px;min-height:60px;border-radius:16px;
+  border:2px solid var(--edge);border-bottom-width:4px;background:var(--card);cursor:pointer;font-weight:800;font-size:clamp(14px,2.2vw,17px);
+  transition:transform .08s}
+.opt:hover:not(:disabled){background:var(--blue-s);border-color:var(--blue)}
+.opt:active:not(:disabled){transform:translateY(3px)}
+.letter{flex:none;width:32px;height:32px;border-radius:10px;border:2px solid var(--edge);border-bottom-width:3px;display:grid;place-items:center;font-size:13px;font-weight:900;color:var(--muted)}
+.opt.ok{border-color:var(--green);background:var(--green-s);color:var(--green)} .opt.ok .letter{border-color:var(--green);background:var(--green);color:#fff}
+.opt.bad{border-color:var(--red);background:var(--red-s);color:var(--red)} .opt.bad .letter{border-color:var(--red);background:var(--red);color:#fff}
+.opt:disabled{cursor:default}
+.banner{margin-top:auto;position:sticky;bottom:0;padding:16px;border-radius:20px 20px 0 0;display:none;gap:14px;align-items:center;flex-wrap:wrap;
+  border-top:3px solid var(--green);background:var(--green-s)}
+.banner.show{display:flex;animation:up .25s ease-out}
+.banner.bad{border-color:var(--red);background:var(--red-s)}
+@keyframes up{from{transform:translateY(40px);opacity:0}}
+.banner .t{flex:1 1 260px}
+.banner h3{font-size:18px;font-weight:900;color:var(--green)} .banner.bad h3{color:var(--red)}
+.banner p{font-weight:600;font-size:14px;line-height:1.45;margin-top:2px}
+.banner .btn{flex:0 0 auto;min-width:150px}
+.banner.bad .btn{background:var(--red);border-bottom-color:var(--red-d)}
+@media(max-width:560px){.banner .btn{width:100%}}
+.gap{flex:1;min-height:16px}
+
+/* result */
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;width:100%;max-width:520px}
+.stat{padding:16px 8px;border-radius:16px;border:2px solid var(--edge);border-bottom-width:4px;background:var(--card)}
+.stat b{display:block;font-size:clamp(18px,4vw,26px);font-weight:900}
+.stat span{font-size:11px;color:var(--muted);letter-spacing:.4px}
+.big{font-size:clamp(64px,16vw,110px);line-height:1}
+.acts{display:flex;gap:12px;flex-wrap:wrap;width:100%;max-width:520px}
+.acts .btn{flex:1 1 180px}
+/* profile + home */
+.lab{display:block;margin:22px 0 10px;color:var(--muted);font-size:14px}
+.chips{display:flex;flex-wrap:wrap;gap:10px}
+.chip{padding:12px 18px;border-radius:14px;border:2px solid var(--edge);border-bottom-width:4px;background:var(--card);cursor:pointer;font-weight:900;min-width:64px;text-align:center}
+.chip[aria-pressed=true]{border-color:var(--green);background:var(--green-s);color:var(--green)}
+.hhead{display:flex;gap:12px;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;margin-bottom:22px}
+.btn.sm{padding:10px 14px;font-size:13px}
+.grid{display:grid;gap:14px;grid-template-columns:repeat(2,1fr)}
+@media(min-width:720px){.grid{grid-template-columns:repeat(3,1fr);gap:18px}}
+.card{position:relative;min-height:150px;border-radius:18px;padding:14px;border:2px solid rgba(0,0,0,.15);border-bottom-width:5px;color:#fff;cursor:pointer;
+  display:flex;flex-direction:column;justify-content:space-between;text-align:left;overflow:hidden}
+.card:active{transform:translateY(3px)}
+.card .ic{font-size:34px;line-height:1}
+.card b{font-size:clamp(15px,2.4vw,18px);font-weight:900;display:block}
+.card small{font-size:12px;font-weight:700;opacity:.92}
+.group{margin:22px 0 10px;font-size:18px;font-weight:900}
+.trow{display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;padding:16px;margin-bottom:10px;border-radius:16px;border:2px solid var(--edge);border-bottom-width:4px;background:var(--card);cursor:pointer;font-weight:800;font-size:16px;text-align:left}
+.trow:hover{border-color:var(--green)}
+.play{flex:none;width:32px;height:32px;border-radius:50%;background:var(--green);color:#fff;display:grid;place-items:center;font-size:13px}
+/* mascot + motion */
+.mascot{display:grid;place-items:center;flex:none}
+.owl{overflow:visible}
+.owl .ob{transform-box:fill-box;transform-origin:50% 100%;animation:idle 3.2s ease-in-out infinite}
+.owl .eyes{transform-box:fill-box;transform-origin:center;animation:blink 4.5s infinite}
+.owl .wing{transform-box:fill-box;transform-origin:50% 10%}
+.owl .tear{display:none}
+.owl.sad .tear{display:block;animation:tear 1.6s infinite}
+.owl.sad .ob{animation:sag 2.6s ease-in-out infinite;filter:saturate(.6)}
+.owl.celebrate .ob{animation:jump .9s ease-in-out infinite}
+.owl.celebrate .wl{animation:flapL .3s ease-in-out infinite alternate}
+.owl.celebrate .wr{animation:flapR .3s ease-in-out infinite alternate}
+@keyframes idle{50%{transform:translateY(-3px) scaleY(1.02)}}
+@keyframes blink{0%,92%,100%{transform:scaleY(1)}95%{transform:scaleY(.1)}}
+@keyframes jump{0%,100%{transform:none}40%,60%{transform:translateY(-16px) scale(.97,1.04)}85%{transform:scale(1.05,.94)}}
+@keyframes sag{50%{transform:translateY(3px) scaleY(.97)}}
+@keyframes tear{0%{transform:translateY(0);opacity:0}20%{opacity:1}100%{transform:translateY(20px);opacity:0}}
+@keyframes flapL{to{transform:rotate(-35deg)}} @keyframes flapR{to{transform:rotate(35deg)}}
+.hello{display:flex;align-items:center;gap:14px;margin-bottom:14px}
+.bubble{position:relative;background:var(--card);border:2px solid var(--edge);border-radius:16px;padding:12px 14px}
+.bubble::before{content:"";position:absolute;left:-7px;top:50%;margin-top:-6px;width:12px;height:12px;background:var(--card);border-left:2px solid var(--edge);border-bottom:2px solid var(--edge);transform:rotate(45deg)}
+.hwrap{display:flex;align-items:center;gap:12px}
+.screen.on{animation:scr .3s ease-out}
+@keyframes scr{from{opacity:0;transform:translateY(10px)}}
+.card{animation:rise .5s backwards;animation-delay:calc(var(--i,0)*70ms);transition:transform .15s}
+.card:hover{transform:translateY(-3px)}
+.card::before,.card::after{content:"";position:absolute;border-radius:50%;background:rgba(255,255,255,.17);pointer-events:none}
+.card::before{width:110px;height:110px;right:-30px;top:-34px;animation:drift 7s ease-in-out infinite alternate}
+.card::after{width:60px;height:60px;left:-14px;bottom:-18px;animation:drift 9s ease-in-out infinite alternate-reverse}
+.card>*{position:relative;z-index:1}
+.card .ic{display:inline-block;font-size:42px;animation:bob 3s ease-in-out infinite;animation-delay:calc(var(--i,0)*-.5s)}
+@keyframes drift{to{transform:translate(-10px,12px) scale(1.12)}}
+@keyframes bob{50%{transform:translateY(-6px) rotate(-6deg)}}
+@keyframes rise{from{opacity:0;transform:translateY(18px) scale(.96)}}
+.trow{animation:rise .35s backwards}
+.chip[aria-pressed=true]{animation:pop .25s}
+@keyframes pop{50%{transform:scale(1.1)}}
+.fill{position:relative}
+.fill::after{content:"";position:absolute;left:6px;right:6px;top:3px;height:4px;border-radius:2px;background:rgba(255,255,255,.35)}
+.q.pop{animation:qin .35s}
+@keyframes qin{from{opacity:0;transform:translateX(18px)}}
+.opt{animation:optIn .35s backwards;animation-delay:calc(var(--i,0)*60ms)}
+@keyframes optIn{from{opacity:0;transform:translateY(14px)}}
+.opt.ok{animation:okpop .45s}
+@keyframes okpop{40%{transform:scale(1.04)}}
+.opt.bad{animation:shake .4s}
+@keyframes shake{20%,60%{transform:translateX(-8px)}40%,80%{transform:translateX(8px)}}
+.pill.heart.hit{animation:hit .5s}
+@keyframes hit{30%{transform:scale(1.35) rotate(-8deg);background:var(--red-s)}}
+.pill.streak{color:var(--gold);animation:pop .3s}
+.pill.time.low{animation:pulse .8s infinite}
+@keyframes pulse{50%{transform:scale(1.12)}}
+.bm{flex:none}
+.xp{position:fixed;z-index:50;pointer-events:none;color:var(--gold);font-weight:900;font-size:22px;animation:xpup .9s ease-out forwards}
+@keyframes xpup{to{transform:translateY(-60px);opacity:0}}
+#flash{position:fixed;inset:0;background:var(--red);opacity:0;pointer-events:none;z-index:40}
+#flash.go{animation:fl .4s}
+@keyframes fl{from{opacity:.2}}
+#fx{position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:60}
+.dots{display:flex;gap:8px}
+.dots i{width:12px;height:12px;border-radius:50%;background:var(--green);animation:dot 1s infinite ease-in-out}
+.dots i:nth-child(2){animation-delay:.15s}.dots i:nth-child(3){animation-delay:.3s}
+@keyframes dot{50%{transform:translateY(-8px);opacity:.5}}
+.stat{animation:rise .5s backwards}.stat:nth-child(2){animation-delay:.12s}.stat:nth-child(3){animation-delay:.24s}
+@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- SETUP -->
+  <!-- PROFILE (first screen) -->
+  <section class="screen on" id="s-profile">
+    <div class="hello"><div class="mascot" id="m-profile"></div><div class="bubble">Hi! Tell me your class and I’ll pick the right subjects.</div></div>
+    <h1>Let’s set up your profile</h1>
+    <p class="sub">Tell us your class and we’ll show subjects that match it.</p>
+    <label class="lab" for="pname">Your name (optional)</label>
+    <input class="field" id="pname" maxlength="30" placeholder="e.g. Ravi" autocomplete="given-name">
+    <span class="lab">Which class are you in?</span>
+    <div class="chips" id="classChips"></div>
+    <div id="streamBox" hidden><span class="lab">Choose your stream</span><div class="chips" id="streamChips"></div></div>
+    <div class="start"><button class="btn" id="saveProfile" disabled>CONTINUE</button></div>
+  </section>
+
+  <!-- HOME: subjects for the chosen class -->
+  <section class="screen" id="s-home">
+    <div class="hhead"><div class="hwrap"><div class="mascot" id="m-home"></div><div><h1 id="hi"></h1><p class="sub" id="hSub"></p></div></div><button class="btn ghost sm" id="editProfile">Change class</button></div>
+    <div class="grid" id="subjects"></div>
+  </section>
+
+  <!-- SUBJECT: groups and topics -->
+  <section class="screen" id="s-subject">
+    <div class="top"><button class="x" id="backHome" aria-label="Back">←</button><h1 id="subT" style="font-size:clamp(22px,4vw,30px)"></h1></div>
+    <p class="sub" id="subS"></p>
+    <div id="topics"></div>
+  </section>
+
+  <!-- CUSTOM TOPIC / PDF -->
+  <section class="screen" id="s-setup">
+    <div class="top"><button class="x" id="backCustom" aria-label="Back">←</button></div>
+    <h1 style="margin-top:8px">Your own topic or PDF</h1>
+    <p class="sub">Type a topic or upload a PDF. AI reads it and writes a quiz for you.</p>
+
+    <div class="tabs" role="tablist">
+      <button class="tab" role="tab" aria-selected="true" id="t-topic">Topic</button>
+      <button class="tab" role="tab" aria-selected="false" id="t-pdf">PDF</button>
+    </div>
+
+    <div id="p-topic"><input class="field" id="topic" placeholder="e.g. Photosynthesis, World War II, GST" maxlength="120"></div>
+    <div id="p-pdf" hidden>
+      <div class="drop" id="drop" tabindex="0" role="button" aria-label="Choose a PDF">
+        <b id="dropT">Tap to choose a PDF</b><span class="sub" id="dropS">or drag and drop it here</span>
+        <input type="file" id="file" accept="application/pdf" hidden>
+      </div>
+    </div>
+
+    <div class="row">
+      <label>Questions
+        <select class="field" id="count"><option>5</option><option selected>8</option><option>10</option><option>15</option></select>
+      </label>
+      <label>Difficulty
+        <select class="field" id="diff"><option>Easy</option><option selected>Mixed</option><option>Hard</option></select>
+      </label>
+    </div>
+    <div class="msg" id="err" role="alert"></div>
+    <div class="start"><button class="btn" id="go">GENERATE QUIZ</button></div>
+  </section>
+
+  <!-- LOADING -->
+  <section class="screen" id="s-load">
+    <div class="center"><div class="mascot" id="m-load"></div><div class="dots"><i></i><i></i><i></i></div><h1 style="font-size:24px" id="loadT">Writing your questions…</h1><p class="sub" id="loadS"></p></div>
+  </section>
+
+  <!-- QUIZ -->
+  <section class="screen" id="s-quiz">
+    <div class="top">
+      <button class="x" id="quit" aria-label="Quit quiz">✕</button>
+      <div class="bar"><div class="fill" id="fill"></div></div>
+      <div class="pill streak" id="streak" hidden>🔥 0</div>
+      <div class="pill time" id="time">⏱ 15</div>
+      <div class="pill heart" id="hearts">♥ 5</div>
+    </div>
+    <div class="q" id="q" aria-live="polite"></div>
+    <div class="opts" id="opts"></div>
+    <div class="gap"></div>
+    <div class="banner" id="banner"><div class="bm" id="bMascot"></div><div class="t"><h3 id="bT"></h3><p id="bP"></p></div><button class="btn" id="next">CONTINUE</button></div>
+  </section>
+
+  <!-- RESULT -->
+  <section class="screen" id="s-end">
+    <div class="center">
+      <div class="mascot" id="eIcon"></div>
+      <h1 id="eT">Quiz complete!</h1><p class="sub" id="eS"></p>
+      <div class="stats">
+        <div class="stat"><b id="eScore" style="color:var(--green)">0</b><span>SCORE</span></div>
+        <div class="stat"><b id="eAcc" style="color:var(--blue)">0%</b><span>ACCURACY</span></div>
+        <div class="stat"><b id="eXp" style="color:var(--gold)">0</b><span>XP</span></div>
+      </div>
+      <div class="acts"><button class="btn" id="dash">BACK TO DASHBOARD</button></div>
+    </div>
+  </section>
+</div>
+
+<canvas id="fx"></canvas><div id="flash"></div>
+<script>
+// ---- CONFIG: your Flask backend (see quiz-backend/README.md) ----
+const API_BASE = "http://localhost:5000";
+const MAX_HEARTS = 5, SECONDS = 15;
+
+const $ = id => document.getElementById(id);
+const CLASSES=[6,7,8,9,10,11,12];
+const COLORS=["#58CC02","#1CB0F6","#FFC800","#CE82FF","#FF4B4B","#FF9600"];
+function curriculum(pr){
+  const lv=pr.classLevel,st=pr.stream;
+  if(st==="general"&&lv)return{
+    [`Class ${lv} Science`]:{sub:`Core science for Class ${lv}`,ic:"🧪",g:{"Physics Basics":["Motion","Force","Work"],"Chemistry Basics":["Matter","Atoms","Reactions"],"Biology Basics":["Cells","Ecosystems"]}},
+    [`Class ${lv} Math`]:{sub:`Mathematics for Class ${lv}`,ic:"🧮",g:{"Algebra":["Equations","Polynomials"],"Geometry":["Shapes","Angles"],"Arithmetic":["Fractions","Percentages"]}},
+    [`Class ${lv} Social`]:{sub:`History and Geography for Class ${lv}`,ic:"🌍",g:{"History":["Ancient India","World Wars"],"Geography":["Maps","Climate"]}},
+    "General Knowledge":{sub:"Trivia and fun facts",ic:"🧠",g:{"Trivia":["World Records","Inventions"],"Sports":["Olympics","World Cup"]}}};
+  if(st==="science")return{
+    "Physics":{sub:"Mechanics and Electromagnetism",ic:"⚛️",g:{"Mechanics":["Kinematics","Dynamics"],"Electromagnetism":["Circuits","Magnetism"]}},
+    "Chemistry":{sub:"Organic and Inorganic",ic:"🧪",g:{"Organic":["Hydrocarbons","Polymers"],"Inorganic":["Periodic Table","Bonds"]}},
+    "Biology":{sub:"Genetics and Human Anatomy",ic:"🧬",g:{"Genetics":["DNA","Evolution"],"Human Anatomy":["Organs","Systems"]}},
+    "Mathematics":{sub:"Calculus and Algebra",ic:"🧮",g:{"Calculus":["Integration","Derivatives"],"Algebra":["Matrices","Probability"]}}};
+  if(st==="commerce")return{
+    "Accountancy":{sub:"Ledgers and Balance Sheets",ic:"📒",g:{"Financial Accounting":["Journal","GST"],"Corporate Accounting":["Shares","Debentures"]}},
+    "Economics":{sub:"Micro and Macro",ic:"📈",g:{"Micro":["Demand","Supply"],"Macro":["National Income","Banking"]}},
+    "Business Studies":{sub:"Management and Marketing",ic:"💼",g:{"Management":["Principles","Planning"],"Finance":["Financial Markets","Marketing"]}}};
+  if(st==="arts")return{
+    "History":{sub:"Ancient to Modern World",ic:"🏛️",g:{"World History":["Revolutions","Cold War"],"Local History":["Ancient Era","Medieval Era"]}},
+    "Geography":{sub:"Earth and Environment",ic:"🌍",g:{"Physical Geography":["Climate","Oceans"],"Human Geography":["Population","Resources"]}},
+    "Political Science":{sub:"Government and Constitution",ic:"⚖️",g:{"Constitution":["Rights","Duties"],"Global Politics":["UN","Alliances"]}}};
+  return{
+    "General Knowledge":{sub:"World history and geography",ic:"🧠",g:{"History":["Ancient","Medieval","Modern World"],"Geography":["World Geography","Topography"],"Sports":["Olympics","Football"]}},
+    "Science":{sub:"Core physics and chemistry",ic:"🧪",g:{"Physics":["Mechanics","Optics"],"Chemistry":["Organic","Inorganic"]}}};
+}
+let profile=null,pend={classLevel:null,stream:null};
+function loadProfile(){try{return JSON.parse(localStorage.getItem("quizProfile"))}catch(e){return null}}
+function saveProfile(p){try{localStorage.setItem("quizProfile",JSON.stringify(p))}catch(e){}}
+function levelText(){return !profile?"":profile.classLevel?`Class ${profile.classLevel}`:"college"}
+
+function chips(id,items,sel,fn){const box=$(id);box.innerHTML="";
+  items.forEach(it=>{const b=document.createElement("button");b.className="chip";b.textContent=it.label;
+    b.setAttribute("aria-pressed",String(sel===it.value));b.onclick=()=>fn(it.value);box.appendChild(b)})}
+function drawProfile(){
+  chips("classChips",[...CLASSES.map(c=>({label:"Class "+c,value:c})),{label:"College / Other",value:"other"}],pend.classLevel,v=>{
+    pend.classLevel=v;pend.stream=(v==="other")?"other":(v>=11?null:"general");drawProfile()});
+  const needs=typeof pend.classLevel==="number"&&pend.classLevel>=11;
+  $("streamBox").hidden=!needs;
+  chips("streamChips",[{label:"Science",value:"science"},{label:"Commerce",value:"commerce"},{label:"Arts",value:"arts"}],pend.stream,v=>{pend.stream=v;drawProfile()});
+  $("saveProfile").disabled=!(pend.classLevel&&pend.stream);
+}
+$("saveProfile").onclick=()=>{
+  profile={name:$("pname").value.trim(),classLevel:pend.classLevel==="other"?null:pend.classLevel,stream:pend.stream};
+  saveProfile(profile);drawHome();show("s-home")};
+$("editProfile").onclick=()=>{pend={classLevel:profile.classLevel||"other",stream:profile.stream};$("pname").value=profile.name||"";drawProfile();show("s-profile")};
+
+function drawHome(){
+  $("hi").textContent=profile.name?`Hi ${profile.name}!`:"Pick a subject";
+  $("hSub").textContent=(profile.classLevel?`Class ${profile.classLevel}`:"College / Other")+(profile.stream&&profile.stream!=="general"&&profile.stream!=="other"?` · ${profile.stream[0].toUpperCase()+profile.stream.slice(1)}`:"")+" · choose what to practise";
+  const box=$("subjects");box.innerHTML="";let n=0;
+  Object.entries(curriculum(profile)).forEach(([name,d])=>{
+    const b=document.createElement("button");b.className="card";b.style.setProperty("--i",n);b.style.background=COLORS[n++%COLORS.length];
+    b.innerHTML='<span class="ic"></span><span><b></b><small></small></span>';
+    b.querySelector(".ic").textContent=d.ic;b.querySelector("b").textContent=name;b.querySelector("small").textContent=d.sub;
+    b.onclick=()=>openSubject(name,d);box.appendChild(b)});
+  const c=document.createElement("button");c.className="card";c.style.setProperty("--i",n);c.style.background="#A568C9";
+  c.innerHTML='<span class="ic">✨</span><span><b>Your own topic or PDF</b><small>AI writes a quiz from anything</small></span>';
+  c.onclick=()=>{setMode("topic");show("s-setup")};box.appendChild(c);
+}
+function openSubject(name,d){
+  $("subT").textContent=name;$("subS").textContent=d.sub;
+  const box=$("topics");box.innerHTML="";
+  Object.entries(d.g).forEach(([g,list])=>{
+    const h=document.createElement("div");h.className="group";h.textContent=g;box.appendChild(h);
+    list.forEach(t=>{const b=document.createElement("button");b.className="trow";
+      b.innerHTML="<span></span><span class='play'>▶</span>";b.firstChild.textContent=t;
+      b.onclick=()=>runSource({label:`${name}: ${g} – ${t}`});box.appendChild(b)})});
+  show("s-subject");
+}
+$("backHome").onclick=()=>show("s-home");
+$("backCustom").onclick=()=>show("s-home");
+
+let mode = "topic", pdfFile = null, source = null; // source = {label, text?}
+let streak = 0, qs = [], i = 0, score = 0, hearts = MAX_HEARTS, answered = false, timer = null, left = SECONDS, seen = [];
+
+function show(id){document.querySelectorAll(".screen").forEach(s=>s.classList.toggle("on",s.id===id));window.scrollTo(0,0)}
+function err(m){const e=$("err");e.textContent=m;e.style.display=m?"block":"none"}
+
+// ---- setup UI ----
+function setMode(m){mode=m;err("");
+  $("t-topic").setAttribute("aria-selected",m==="topic");$("t-pdf").setAttribute("aria-selected",m==="pdf");
+  $("p-topic").hidden=m!=="topic";$("p-pdf").hidden=m!=="pdf"}
+$("t-topic").onclick=()=>setMode("topic");$("t-pdf").onclick=()=>setMode("pdf");
+const drop=$("drop"),file=$("file");
+drop.onclick=()=>file.click();
+drop.onkeydown=e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();file.click()}};
+["dragover","dragenter"].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.add("over")}));
+["dragleave","drop"].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.remove("over")}));
+drop.addEventListener("drop",e=>setFile(e.dataTransfer.files[0]));
+file.onchange=()=>setFile(file.files[0]);
+function setFile(f){
+  if(!f)return; if(f.type!=="application/pdf"&&!/\.pdf$/i.test(f.name))return err("Please choose a PDF file.");
+  if(f.size>25*1024*1024)return err("That PDF is over 25 MB. Try a smaller one.");
+  err("");pdfFile=f;drop.classList.add("has");$("dropT").textContent=f.name;$("dropS").textContent=(f.size/1048576).toFixed(1)+" MB · tap to change"}
+
+// ---- backend call: the server reads the PDF and writes the questions ----
+async function generate(src,n,diff){
+  let r;
+  try{
+    if(src.file){
+      const f=new FormData();f.append("file",src.file);f.append("count",n);f.append("difficulty",diff);
+      f.append("seen",JSON.stringify(seen.slice(-40)));
+      r=await fetch(API_BASE+"/api/quiz/pdf",{method:"POST",body:f});
+    }else{
+      r=await fetch(API_BASE+"/api/quiz/topic",{method:"POST",headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({topic:src.label,classLevel:profile&&profile.classLevel,stream:profile&&profile.stream,count:n,difficulty:diff,seen:seen.slice(-40)})});
+    }
+  }catch(e){throw new Error("Can’t reach the quiz server. Is the backend running?")}
+  const d=await r.json().catch(()=>({}));
+  if(!r.ok||d.error)throw new Error(d.error||`Server error (${r.status}).`);
+  if(!d.questions||!d.questions.length)throw new Error("No questions came back. Try again.");
+  return d.questions;
+}
+
+async function runSource(src,reuse){
+  const n=+$("count").value,diff=$("diff").value;
+  try{
+    if(!reuse)seen=[];
+    source=src;show("s-load");$("loadT").textContent="Writing your questions…";$("loadS").textContent="";
+    const slow=setTimeout(()=>$("loadS").textContent="The server is waking up, this can take up to a minute.",6000);
+    try{qs=await generate(source,n,diff)}finally{clearTimeout(slow);$("loadS").textContent=""}
+    seen.push(...qs.map(x=>x.q));
+    i=0;score=0;hearts=MAX_HEARTS;begin();
+  }catch(e){
+    if(src.custom){show("s-setup");err(e.message||"Something went wrong.")}
+    else{show("s-subject");alert(e.message||"Something went wrong.")}
+  }
+}
+async function start(){
+  err("");
+  try{
+    if(mode==="topic"){const t=$("topic").value.trim();if(t.length<2)return err("Type a topic first.");return runSource({label:t,custom:true})}
+    if(!pdfFile)return err("Choose a PDF first.");
+    return runSource({label:pdfFile.name,file:pdfFile,custom:true});
+  }catch(e){show("s-setup");err(e.message||"Something went wrong.")}
+}
+$("go").onclick=start;
+$("dash").onclick=()=>show("s-home");
+
+// ---- mascot + effects ----
+const REDUCE=matchMedia("(prefers-reduced-motion: reduce)").matches;
+function owl(size,mood){return `<svg class="owl ${mood||""}" width="${size}" height="${size}" viewBox="0 0 120 124" aria-hidden="true"><g class="ob">
+<path d="M30 30L38 10L53 25Z" fill="#58A700"/><path d="M90 30L82 10L67 25Z" fill="#58A700"/>
+<ellipse class="wing wl" cx="19" cy="78" rx="9" ry="21" fill="#58A700"/><ellipse class="wing wr" cx="101" cy="78" rx="9" ry="21" fill="#58A700"/>
+<path d="M44 114h12M64 114h12" stroke="#FFB020" stroke-width="6" stroke-linecap="round"/>
+<ellipse cx="60" cy="70" rx="44" ry="46" fill="#58CC02"/><ellipse cx="60" cy="86" rx="26" ry="26" fill="#EFFFD9"/>
+<g class="eyes"><circle cx="43" cy="54" r="15" fill="#fff"/><circle cx="77" cy="54" r="15" fill="#fff"/>
+<circle cx="45" cy="56" r="7" fill="#1F2C33"/><circle cx="75" cy="56" r="7" fill="#1F2C33"/><circle cx="47" cy="53" r="2.5" fill="#fff"/><circle cx="77" cy="53" r="2.5" fill="#fff"/></g>
+<path d="M52 64h16l-8 12z" fill="#FFB020"/><path class="tear" d="M33 70q-5 9 0 11q5-2 0-11z" fill="#1CB0F6"/></g></svg>`}
+const cv=$("fx"),cx=cv.getContext("2d");let parts=[],raf=0;
+function sizeCv(){cv.width=innerWidth*devicePixelRatio;cv.height=innerHeight*devicePixelRatio}
+addEventListener("resize",sizeCv);sizeCv();
+function confetti(x,y,n,power){
+  if(REDUCE)return;const d=devicePixelRatio;
+  for(let k=0;k<n;k++){const a=Math.random()*6.28,v=(Math.random()*.6+.4)*power;
+    parts.push({x:x*d,y:y*d,vx:Math.cos(a)*v*d,vy:(Math.sin(a)*v-power*.6)*d,g:.35*d,s:(4+Math.random()*5)*d,r:Math.random()*6,vr:(Math.random()-.5)*.4,c:COLORS[k%COLORS.length],life:70+Math.random()*30})}
+  if(!raf)raf=requestAnimationFrame(loop)}
+function loop(){
+  cx.clearRect(0,0,cv.width,cv.height);parts=parts.filter(p=>p.life>0);
+  parts.forEach(p=>{p.vy+=p.g;p.x+=p.vx;p.y+=p.vy;p.r+=p.vr;p.life--;cx.save();cx.globalAlpha=Math.min(1,p.life/25);
+    cx.translate(p.x,p.y);cx.rotate(p.r);cx.fillStyle=p.c;cx.fillRect(-p.s/2,-p.s/2,p.s,p.s*.6);cx.restore()});
+  raf=parts.length?requestAnimationFrame(loop):0}
+function floatXp(r){const e=document.createElement("div");e.className="xp";e.textContent="+10 XP";
+  e.style.left=(r.left+r.width/2-30)+"px";e.style.top=r.top+"px";document.body.appendChild(e);setTimeout(()=>e.remove(),950)}
+function buzz(p){try{navigator.vibrate&&navigator.vibrate(p)}catch(e){}}
+function setStreak(){const e=$("streak");if(streak>=2){e.hidden=false;e.textContent="🔥 "+streak;e.style.animation="none";void e.offsetWidth;e.style.animation=""}else e.hidden=true}
+function countUp(el,to,fmt){if(REDUCE){el.textContent=fmt(to);return}
+  const t0=performance.now();(function f(t){const p=Math.min(1,(t-t0)/900);el.textContent=fmt(Math.round(to*(1-Math.pow(1-p,3))));if(p<1)requestAnimationFrame(f)})(t0)}
+$("m-profile").innerHTML=owl(96);$("m-home").innerHTML=owl(64);$("m-load").innerHTML=owl(130,"celebrate");
+
+// ---- start screen ----
+profile=loadProfile();
+if(profile&&profile.stream){drawHome();show("s-home")}else{drawProfile()}
+
+// ---- quiz ----
+function begin(){streak=0;show("s-quiz");render()}
+function render(){
+  const cur=qs[i];answered=false;
+  $("q").textContent=cur.q;$("q").classList.remove("pop");void $("q").offsetWidth;$("q").classList.add("pop");setStreak();$("fill").style.width=(i/qs.length*100)+"%";$("hearts").textContent="♥ "+hearts;
+  $("banner").className="banner";
+  const box=$("opts");box.innerHTML="";
+  cur.o.forEach((t,k)=>{const b=document.createElement("button");b.className="opt";b.style.setProperty("--i",k);
+    b.innerHTML='<span class="letter"></span><span></span>';
+    b.children[0].textContent="ABCD"[k];b.children[1].textContent=t;b.onclick=()=>pick(k);box.appendChild(b)});
+  left=SECONDS;tick();clearInterval(timer);timer=setInterval(()=>{left--;tick();if(left<=0){clearInterval(timer);pick(-1)}},1000);
+}
+function tick(){const t=$("time");t.textContent="⏱ "+Math.max(left,0);t.classList.toggle("low",left<=5)}
+function pick(k){
+  if(answered)return;answered=true;clearInterval(timer);
+  const cur=qs[i],ok=k===cur.c,btns=[...$("opts").children];
+  btns.forEach((b,j)=>{b.disabled=true;if(j===cur.c)b.classList.add("ok");else if(j===k)b.classList.add("bad")});
+  if(ok){score++;streak++;const r=btns[cur.c].getBoundingClientRect();confetti(r.left+r.width/2,r.top+r.height/2,22,7);floatXp(r);buzz(20)}
+  else{hearts--;streak=0;const f=$("flash");f.classList.remove("go");void f.offsetWidth;f.classList.add("go");
+    const h=$("hearts");h.classList.remove("hit");void h.offsetWidth;h.classList.add("hit");buzz([60,40,60])}
+  $("hearts").textContent="♥ "+hearts;setStreak();
+  const bn=$("banner");bn.className="banner show"+(ok?"":" bad");
+  $("bMascot").innerHTML=owl(54,ok?"celebrate":"sad");
+  $("bT").textContent=ok?"Correct!":(k===-1?"Time’s up":"Not quite");
+  $("bP").textContent=cur.e;
+  $("next").textContent=(hearts<=0||i===qs.length-1)?"FINISH":"CONTINUE";
+  $("next").focus({preventScroll:true});bn.scrollIntoView({block:"nearest",behavior:"smooth"});
+}
+$("next").onclick=()=>{ if(hearts<=0||i>=qs.length-1)return finish(); i++;render() };
+$("quit").onclick=()=>{if(confirm("Quit this quiz?")){clearInterval(timer);show("s-home")}};
+document.addEventListener("keydown",e=>{
+  if(!$("s-quiz").classList.contains("on"))return;
+  if(!answered&&/^[1-4]$/.test(e.key)&&qs[i].o[+e.key-1]!==undefined)pick(+e.key-1);
+});
+
+function finish(){
+  clearInterval(timer);show("s-end");
+  const n=qs.length,pct=Math.round(score/n*100),dead=hearts<=0&&score<n;
+  $("eIcon").innerHTML=owl(150,dead?"sad":"celebrate");
+  if(!dead&&pct>=50)[.2,.5,.8].forEach((f,k)=>setTimeout(()=>confetti(innerWidth*f,innerHeight*.35,70,12),k*250));
+  $("eT").textContent=dead?"Out of hearts":pct>=80?"Great job!":pct>=50?"Nice work!":"Keep practising";
+  $("eS").textContent=source.label;
+  countUp($("eScore"),score,v=>v+"/"+n);countUp($("eAcc"),pct,v=>v+"%");countUp($("eXp"),score*10,v=>"+"+v);
+}
+</script>
+</body>
+</html>
